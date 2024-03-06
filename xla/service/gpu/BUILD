@@ -2903,6 +2903,23 @@ xla_cc_test(
 )
 
 cc_library(
+    name = "cudnn_fusion_keeper",
+    srcs = ["cudnn_fusion_keeper.cc"],
+    hdrs = ["cudnn_fusion_keeper.h"],
+    deps = [
+        ":backend_configs_cc",
+        ":ir_emission_utils",
+        "//xla/service:hlo_pass",
+        "//xla/hlo/ir:hlo",
+        "//xla/hlo/utils:hlo_query",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+cc_library(
     name = "cudnn_fusion_compiler",
     srcs = if_cuda_is_configured(["cudnn_fusion_compiler.cc"]),
     hdrs = if_cuda_is_configured(["cudnn_fusion_compiler.h"]),
@@ -3348,6 +3365,7 @@ cc_library(
         ":compile_module_to_llvm_ir",
         ":conv_layout_normalization",
         ":copy_fusion",
+        ":cudnn_fusion_keeper",
         ":custom_kernel_fusion_rewriter",
         ":dot_dimension_sorter",
         ":dot_operand_converter",
