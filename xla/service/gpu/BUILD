@@ -2919,6 +2919,20 @@ cc_library(
     ],
 )
 
+xla_cc_test(
+    name = "cudnn_fusion_keeper_test",
+    srcs = ["cudnn_fusion_keeper_test.cc"],
+    deps = [
+        ":cudnn_fusion_keeper",
+        "//xla/hlo/ir:hlo",
+        "//xla/service:pattern_matcher",
+        "//xla/service:pattern_matcher_gmock",
+        "//xla/tests:hlo_test_base",
+        "//xla/tests:xla_internal_test_main",  # build_cleaner: keep
+        "@com_google_googletest//:gtest",
+    ],
+)
+
 cc_library(
     name = "cudnn_fusion_compiler",
     srcs = if_cuda_is_configured(["cudnn_fusion_compiler.cc"]),

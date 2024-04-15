@@ -32,17 +32,17 @@ namespace gpu {
 namespace {
 
 class CuDnnFusionVisitor : public DfsHloRewriteVisitor {
- public:
-  absl::Status HandleCall(HloInstruction* hlo) override {
-    if (!absl::StartsWith(hlo->called_computations()[0]->name(), "cudnn__")) {
+public:
+  absl::Status HandleCustomCall(HloInstruction *hlo) override {
+    if (hlo->custom_call_target() != "__cudnn$fusion") {
       return absl::OkStatus();
     }
-    HloInstruction* fusion =
+    HloInstruction *fusion =
         hlo->parent()->AddInstruction(HloInstruction::CreateFusion(
             hlo->shape(), HloInstruction::FusionKind::kCustom, hlo->operands(),
             hlo->called_computations()[0]));
     GpuBackendConfig gpu_config;
-    FusionBackendConfig& backend_config =
+    FusionBackendConfig &backend_config =
         *gpu_config.mutable_fusion_backend_config();
     backend_config.set_kind(std::string(kCuDnnFusionKind));
     TF_RETURN_IF_ERROR(fusion->set_backend_config(gpu_config));
@@ -52,13 +52,13 @@ class CuDnnFusionVisitor : public DfsHloRewriteVisitor {
   }
 };
 
-}  // namespace
+} // namespace
 
 absl::StatusOr<bool> CuDnnFusionKeeper::Run(
-    HloModule* module,
-    const absl::flat_hash_set<absl::string_view>& execution_threads) {
+    HloModule *module,
+    const absl::flat_hash_set<absl::string_view> &execution_threads) {
   return CuDnnFusionVisitor().RunOnModule(module, execution_threads);
 }
 
-}  // namespace gpu
-}  // namespace xla
+} // namespace gpu
+} // namespace xla
