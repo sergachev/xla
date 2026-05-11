@@ -199,4 +199,8 @@ def PdlWaitOp : XLAGPU_Op<"pdl_wait", []> {
   let summary = "Waits for upstream dependencies.";
 }
 
+def PdlLaunchOp : XLAGPU_Op<"pdl_launch", []> {
+  let summary = "Signals that downstream dependencies may launch.";
+}
+
 #endif // XLA_SERVICE_GPU_FUSIONS_MLIR_OPS

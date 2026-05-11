@@ -70,6 +70,8 @@ namespace xla::emitters {
 static constexpr absl::string_view kXlaEntryAttr = "xla.entry";
 static constexpr absl::string_view kXlaSliceIndexAttr = "xla.slice_index";
 static constexpr absl::string_view kXlaInvariantAttr = "xla.invariant";
+static constexpr absl::string_view kXlaPdlDependencyAttr =
+    "xla.pdl_dependency";
 static constexpr std::array<int, 3> kIndexingMapWorkItemDims = {0, 1, 2};
 static constexpr std::array<int, 3> kIndexingMapWorkGroupDims = {3, 4, 5};
 
@@ -120,6 +122,21 @@ static bool Needs64BitIndices(const HloInstruction* instr) {
   }
 
   return false;
+}
+
+static bool IsAvailableBeforeKernelLaunch(const HloInstruction& instr) {
+  switch (instr.opcode()) {
+    case HloOpcode::kParameter:
+    case HloOpcode::kConstant:
+      return true;
+    case HloOpcode::kBitcast:
+    case HloOpcode::kGetTupleElement:
+      return absl::c_all_of(instr.operands(), [](const HloInstruction* operand) {
+        return IsAvailableBeforeKernelLaunch(*operand);
+      });
+    default:
+      return false;
+  }
 }
 
 static std::vector<IndexingMap::Variable> DimVarsFromWorkDimensions(
@@ -173,6 +190,11 @@ absl::StatusOr<mlir::func::FuncOp> EmitKernelApi(
     if (!arg.written()) {
       attrs.push_back(
           builder.getNamedAttr(kXlaInvariantAttr, builder.getUnitAttr()));
+    }
+    if (index < hlo_instruction.operand_count() &&
+        !IsAvailableBeforeKernelLaunch(*hlo_instruction.operand(index))) {
+      attrs.push_back(builder.getNamedAttr(kXlaPdlDependencyAttr,
+                                           builder.getUnitAttr()));
     }
     return builder.getDictionaryAttr(attrs);
   };

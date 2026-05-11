@@ -119,6 +119,48 @@ using ::mlir::ValueRange;
 
 namespace {
 
+constexpr char kXlaPdlDependencyAttr[] = "xla.pdl_dependency";
+
+bool IsAvailableBeforeKernelLaunch(const HloInstruction& instr) {
+  switch (instr.opcode()) {
+    case HloOpcode::kParameter:
+    case HloOpcode::kConstant:
+      return true;
+    case HloOpcode::kBitcast:
+    case HloOpcode::kGetTupleElement:
+      return absl::c_all_of(instr.operands(),
+                            [](const HloInstruction* operand) {
+                              return IsAvailableBeforeKernelLaunch(*operand);
+                            });
+    default:
+      return false;
+  }
+}
+
+llvm::SmallVector<mlir::DictionaryAttr> GetPdlArgAttrs(
+    mlir::ImplicitLocOpBuilder& b, const HloFusionInstruction& fusion,
+    int64_t num_arg_types) {
+  const HloComputation* hlo_computation =
+      fusion.fused_instructions_computation();
+  llvm::SmallVector<mlir::DictionaryAttr> arg_attrs;
+  arg_attrs.reserve(num_arg_types);
+
+  for (HloInstruction* p : hlo_computation->parameter_instructions()) {
+    llvm::SmallVector<mlir::NamedAttribute> attrs;
+    if (p->parameter_number() < fusion.operand_count() &&
+        !IsAvailableBeforeKernelLaunch(
+            *fusion.operand(p->parameter_number()))) {
+      attrs.push_back(b.getNamedAttr(kXlaPdlDependencyAttr, b.getUnitAttr()));
+    }
+    arg_attrs.push_back(b.getDictionaryAttr(attrs));
+  }
+
+  while (arg_attrs.size() < num_arg_types) {
+    arg_attrs.push_back(b.getDictionaryAttr({}));
+  }
+  return arg_attrs;
+}
+
 Value MakeIndex(mlir::ImplicitLocOpBuilder& b, int64_t value) {
   return arith::ConstantIndexOp::create(b, value);
 }
@@ -1207,8 +1249,9 @@ absl::StatusOr<mlir::OwningOpRef<mlir::ModuleOp>> EmitXTileModule(
   llvm::SmallVector<mlir::NamedAttribute> named_attributes{b.getNamedAttr(
       "num_opaque_args", b.getI32IntegerAttr(opaque_args_types.size()))};
 
-  auto fn = xtile::EntryFuncOp::create(b, fn_name, fn_arg_types,
-                                       named_attributes, {});
+  auto fn = xtile::EntryFuncOp::create(
+      b, fn_name, fn_arg_types, named_attributes,
+      GetPdlArgAttrs(b, fusion, fn_arg_types.size()));
 
   fn.addEntryBlock();
   b.setInsertionPointToStart(&fn.front());

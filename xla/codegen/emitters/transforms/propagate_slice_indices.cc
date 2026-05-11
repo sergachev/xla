@@ -63,6 +63,9 @@ void PropagateSliceIndicesPass::runOnOperation() {
         if (auto invariant = entry.getArgAttr(i, "xla.invariant")) {
           func.setArgAttr(i, "xla.invariant", invariant);
         }
+        if (auto pdl_dependency = entry.getArgAttr(i, "xla.pdl_dependency")) {
+          func.setArgAttr(i, "xla.pdl_dependency", pdl_dependency);
+        }
       } else {
         break;
       }

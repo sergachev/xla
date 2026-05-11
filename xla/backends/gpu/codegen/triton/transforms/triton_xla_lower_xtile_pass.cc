@@ -103,6 +103,18 @@ class XTileEntryToTriton
     auto new_func_op =
         mlir::func::FuncOp::create(builder, entry_op.getName(),
                                    builder.getFunctionType(new_arg_types, {}));
+    if (entry_op.getArgAttrs().has_value()) {
+      auto old_arg_attrs = entry_op.getArgAttrs().value();
+      for (auto [index, attrs] : llvm::enumerate(old_arg_attrs)) {
+        if (index >= new_arg_types.size()) {
+          break;
+        }
+        auto dict = mlir::cast<mlir::DictionaryAttr>(attrs);
+        for (mlir::NamedAttribute attr : dict) {
+          new_func_op.setArgAttr(index, attr.getName(), attr.getValue());
+        }
+      }
+    }
 
     // Move the old function's body to the new function
     rewriter.inlineRegionBefore(

@@ -2,8 +2,11 @@
 // RUN: hlo-opt %s --xla_gpu_enable_pdl --platform=gpu --stage=llvm-before-optimizations --split-input-file --xla_gpu_target_config_filename=%S/../target_config/specs/h100_sxm.txtpb | FileCheck %s  --check-prefixes=CHECK-SM90
 
 // CHECK-LABEL: wrapped_exponential
-// CHECK-SM90: call void @llvm.nvvm.griddepcontrol.wait
-// CHECK-NOT: call void @llvm.nvvm.griddepcontrol.wait
+// CHECK-SM90-LABEL: wrapped_exponential
+// CHECK-SM90: call void @llvm.nvvm.griddepcontrol.wait()
+// CHECK-SM90: store
+// CHECK-NOT: griddepcontrol.wait
+// CHECK-NOT: griddepcontrol.launch_dependents
 
 e {
   a = f32[] exponential(f32[] parameter(0))
@@ -12,8 +15,11 @@ e {
 // -----
 
 // CHECK-LABEL: define ptx_kernel void @triton_softmax
-// CHECK-SM90: call void @llvm.nvvm.griddepcontrol.wait
-// CHECK-NOT: call void @llvm.nvvm.griddepcontrol.wait
+// CHECK-SM90-LABEL: define ptx_kernel void @triton_softmax
+// CHECK-SM90: call void @llvm.nvvm.griddepcontrol.wait()
+// CHECK-SM90-NOT: griddepcontrol.launch_dependents
+// CHECK-NOT: griddepcontrol.wait
+// CHECK-NOT: griddepcontrol.launch_dependents
 
 triton_softmax {
   param_0 = f32[4,4]{1,0} parameter(0)
@@ -35,8 +41,11 @@ e {
 // -----
 
 // CHECK-LABEL: define ptx_kernel void @loop_add_compare_fusion
-// CHECK-SM90: call void @llvm.nvvm.griddepcontrol.wait
-// CHECK-NOT: call void @llvm.nvvm.griddepcontrol.wait
+// CHECK-SM90-LABEL: define ptx_kernel void @loop_add_compare_fusion
+// CHECK-SM90: call void @llvm.nvvm.griddepcontrol.wait()
+// CHECK-SM90: store
+// CHECK-NOT: griddepcontrol.wait
+// CHECK-NOT: griddepcontrol.launch_dependents
 
 HloModule m, is_scheduled=true
 
